@@ -1,0 +1,24 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+*.swo
+*.swp
+*.swm
+
+# Virtual environments and stuff like that
+.venv
+.env
+.python-version
+
+# Outputs, uploads and tests
+outputs/
+uploads/
+tests/test_outputs/
+tests/test_uploads/
+tests/test_video.avi
+tests/test.db
+.coverage
