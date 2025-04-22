@@ -13,34 +13,11 @@ Este é um serviço de processamento de vídeos que permite fazer upload de víd
 - API RESTful protegida  
 
 ## Arquitetura do Projeto de Processamento de Vídeo
-
-┌─────────────────┐       ┌─────────────────┐
-│                 │       │                 │
-│  Cliente/       │       │  API FastAPI    │       
-│  Frontend       │◄─────►│  (Container)    │       
-│                 │       │                 │       
-└─────────────────┘       └────────┬────────┘       
-                                   │                
-                                   ▼                
-┌─────────────────┐       ┌────────┴────────┐       ┌─────────────────┐
-│                 │       │                 │       │                 │
-│  PostgreSQL     │◄─────►│  Redis          │◄─────►│  Celery Worker  │
-│  (Container)    │       │  (Container)    │       │  (Container)    │
-│                 │       │                 │       │                 │
-└─────────────────┘       └─────────────────┘       └────────┬────────┘
-                                                             │
-                                                             ▼
-                                                    ┌─────────────────┐
-                                                    │                 │
-                                                    │  OpenCV         │
-                                                    │  Video          │
-                                                    │  Processing     │
-                                                    │                 │
-                                                    └─────────────────┘
+![image](https://github.com/user-attachments/assets/b4bfe42f-dab4-43f1-970c-f83972c1c5b0)
 
 
 ### Descrição dos Componentes:
-1. Cliente/Frontend:
+1. User (Cliente/Frontend):
 - Interface para usuários fazerem upload de vídeos
 - Visualização do status de processamento
 - Download dos arquivos processados
@@ -70,6 +47,9 @@ Este é um serviço de processamento de vídeos que permite fazer upload de víd
 - Extrai frames de vídeos
 - Compacta resultados em ZIP
 
+7. Email Service:
+- Envia email para o usuário
+
 ### Fluxo de Dados
 1. Usuário faz login e upload de vídeo
 2. API valida arquivo e cria registro no banco
@@ -78,7 +58,7 @@ Este é um serviço de processamento de vídeos que permite fazer upload de víd
 5. Worker processa vídeo extraindo frames
 6. Frames são compactados em arquivo ZIP
 7. Status é atualizado no banco de dados
-8. Usuário recebe notificação de conclusão
+8. Usuário recebe notificação de conclusão ou de erro no processamento
 9. Usuário pode baixar arquivo ZIP com frames
 
 ### Esta arquitetura distribuída permite:
@@ -92,8 +72,7 @@ Este é um serviço de processamento de vídeos que permite fazer upload de víd
 - Python 3.9+  
 - PostgreSQL  
 - Redis
-- RabbitMQ
--  Celery
+- Celery
 - UV (gerenciador de pacotes Python)
 - Flower (opcional)  
 - Docker e Docker Compose (opcional)  
@@ -210,29 +189,28 @@ docker-compose up --build
 ```
 Isso iniciará:
 
--   API FastAPI
--   Worker Celery
--   PostgreSQL
--   Redis
--  RabbitMQ
--   Flower (monitoramento)
+- API FastAPI
+- Worker Celery
+- PostgreSQL
+- Redis
+- Flower (monitoramento)
 
 ## CI/CD
 
 O projeto inclui GitHub Actions para:
 
--   Execução de testes
--   Verificação de código
--   Build e push de imagens Docker
--   Deploy automático (configurável)
+- Execução de testes
+- Verificação de código
+- Build e push de imagens Docker
+- Deploy automático (configurável)
 
 ## Contribuindo
 
-1.  Fork o projeto
-2.  Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
-3.  Commit suas mudanças (`git commit -am 'Adiciona nova feature'`)
-4.  Push para a branch (`git push origin feature/nova-feature`)
-5.  Crie um Pull Request
+1. Fork o projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
+3. Commit suas mudanças (`git commit -am 'Adiciona nova feature'`)
+4. Push para a branch (`git push origin feature/nova-feature`)
+5. Crie um Pull Request
 
 ## Licença
 
