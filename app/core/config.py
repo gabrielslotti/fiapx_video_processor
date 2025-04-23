@@ -39,6 +39,16 @@ class Settings(BaseSettings):
     SMTP_SENDER: str = "Video Processor <seu-email@gmail.com>"
     BASE_URL: str = "http://localhost:8000"
 
+    # GCS
+    GCS_BUCKET_NAME: str
+    # Credenciais, no GCP o próprio ambiente do Cloud Run ou Worker
+    # já herda a Service Account correta, então não precisa setar arquivo.
+    # Se for local, você pode apontar:
+    # GOOGLE_APPLICATION_CREDENTIALS: str
+
+    # Tempo de expiração do signed URL
+    DOWNLOAD_URL_EXPIRE_HOURS: int = 24
+
     class Config:
         env_file = ".env"
         
