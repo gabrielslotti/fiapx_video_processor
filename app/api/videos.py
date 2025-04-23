@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from typing import List
-from app.core.security import get_current_user
+from app.core.security import get_current_user, verify_download_token
 from app.models.video import Video, VideoStatus
 from app.workers.celery_worker import process_video
 from app.db.database import get_db
@@ -69,6 +68,36 @@ async def download_video(
     video = db.query(Video).filter(
         Video.id == video_id,
         Video.user_id == current_user.id
+    ).first()
+    
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    if video.status != VideoStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Video not processed yet")
+    
+    return FileResponse(
+        video.output_path,
+        filename=f"{video.filename}_frames.zip",
+        media_type="application/zip"
+    )
+
+@router.get("/secure-download/{token}")
+async def secure_download_video(
+    token: str,
+    db: Session = Depends(get_db)
+):
+    # Verifica o token
+    result = verify_download_token(token)
+    if not result:
+        raise HTTPException(status_code=403, detail="Invalid or expired download link")
+    
+    video_id, user_id = result
+    
+    # Busca o vídeo
+    video = db.query(Video).filter(
+        Video.id == video_id,
+        Video.user_id == user_id
     ).first()
     
     if not video:

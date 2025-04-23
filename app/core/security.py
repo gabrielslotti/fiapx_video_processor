@@ -1,5 +1,8 @@
 # app/core/security.py
 from datetime import datetime, timedelta
+import hashlib
+import hmac
+from urllib.parse import quote_plus
 from typing import Optional
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
@@ -51,3 +54,60 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     if user is None:
         raise credentials_exception
     return user
+
+def generate_download_token(video_id: int, user_id: int, expiry_hours: int = 24):
+    """
+    Gera um token assinado para download de vídeo com validade limitada
+    """
+    # Timestamp de expiração
+    expiry = int((datetime.now() + timedelta(hours=expiry_hours)).timestamp())
+    
+    # Dados a serem assinados
+    data = f"{video_id}:{user_id}:{expiry}"
+    
+    # Assinatura usando HMAC
+    signature = hmac.new(
+        settings.SECRET_KEY.encode(),
+        data.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    
+    # Token completo: dados + assinatura
+    token = f"{data}:{signature}"
+    
+    # Codifica para URL
+    return quote_plus(token)
+
+def verify_download_token(token: str):
+    """
+    Verifica se um token de download é válido
+    Retorna (video_id, user_id) se válido, None caso contrário
+    """
+    try:
+        # Decodifica o token
+        parts = token.split(":")
+        if len(parts) != 4:
+            return None
+        
+        video_id, user_id, expiry, signature = parts
+        
+        # Verifica expiração
+        if int(expiry) < datetime.now().timestamp():
+            return None
+        
+        # Recria os dados originais
+        data = f"{video_id}:{user_id}:{expiry}"
+        
+        # Verifica a assinatura
+        expected_signature = hmac.new(
+            settings.SECRET_KEY.encode(),
+            data.encode(),
+            hashlib.sha256
+        ).hexdigest()
+        
+        if not hmac.compare_digest(signature, expected_signature):
+            return None
+        
+        return int(video_id), int(user_id)
+    except Exception:
+        return None

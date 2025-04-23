@@ -6,6 +6,7 @@ from app.db.database import SessionLocal
 from datetime import datetime
 from app.services.video_processor import VideoProcessor
 from app.services.email_service import EmailService
+from app.core.security import generate_download_token
 import os
 import traceback
 
@@ -43,9 +44,12 @@ def process_video(video_path: str, output_path: str, video_id: int):
         # Obtém o usuário do vídeo
         user = db.query(User).filter(User.id == video.user_id).first()
         if user:
+            # Gera token de download seguro
+            download_token = generate_download_token(video_id, user.id)
+            
             # Gera URL para download
             base_url = settings.BASE_URL.rstrip('/')
-            download_url = f"{base_url}/videos/download/{video_id}"
+            download_url = f"{base_url}/videos/secure-download/{download_token}"
             
             # Envia email de notificação de sucesso
             EmailService.send_success_notification(
