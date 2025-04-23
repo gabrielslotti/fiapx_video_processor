@@ -1,0 +1,77 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  PYTHON_VERSION: "3.10"
+  IMAGE_API: gcr.io/${{ secrets.GCP_PROJECT }}/video-processor-api
+  IMAGE_WORKER: gcr.io/${{ secrets.GCP_PROJECT }}/video-processor-worker
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install UV and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install uv
+          uv sync --frozen --no-cache
+
+      - name: Run tests with coverage
+        run: |
+          pytest --cov=app --cov-report=xml
+
+  build-and-deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+      - id: auth
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+
+      - name: Build & push API
+        run: |
+          gcloud builds submit . \
+            --tag ${{ env.IMAGE_API }} \
+            --dockerfile docker/Dockerfile.api
+
+      - name: Build & push Worker
+        run: |
+          gcloud builds submit . \
+            --tag ${{ env.IMAGE_WORKER }} \
+            --dockerfile docker/Dockerfile.worker
+
+      - name: Deploy API
+        run: |
+          gcloud run deploy video-processor-api \
+            --image ${{ env.IMAGE_API }} \
+            --region ${{ secrets.CLOUD_RUN_REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}
+
+      - name: Deploy Worker
+        run: |
+          gcloud run deploy video-processor-worker \
+            --image ${{ env.IMAGE_WORKER }} \
+            --region ${{ secrets.CLOUD_RUN_REGION }} \
+            --platform managed \
+            --no-allow-unauthenticated \
+            --concurrency 1 \
+            --set-env-vars GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}

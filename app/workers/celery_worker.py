@@ -3,87 +3,61 @@ from app.core.config import settings
 from app.models.video import Video, VideoStatus
 from app.models.user import User
 from app.db.database import SessionLocal
-from datetime import datetime
 from app.services.video_processor import VideoProcessor
+from app.services.storage_service import StorageService
 from app.services.email_service import EmailService
-from app.core.security import generate_download_token
+from datetime import datetime
 import os
+import uuid
 import traceback
 
-celery = Celery(
-    'video_processor',
-    broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL
-)
+celery = Celery('video_processor', broker=settings.REDIS_URL, backend=settings.REDIS_URL)
+storage = StorageService()
 
 @celery.task
-def process_video(video_path: str, output_path: str, video_id: int):
+def process_video(input_blob: str, output_blob: str, video_id: int):
     db = SessionLocal()
     try:
-        # Atualiza status para processando
-        video = db.query(Video).filter(Video.id == video_id).first()
-        if not video:
-            raise Exception(f"Vídeo com ID {video_id} não encontrado")
-            
+        video = db.query(Video).get(video_id)
         video.status = VideoStatus.PROCESSING
         db.commit()
 
-        # Usa o serviço de processamento
-        processor = VideoProcessor()
-        processor.process_video(video_path, output_path)
+        # Create local paths
+        local_in = f"/tmp/{uuid.uuid4()}_{os.path.basename(input_blob)}"
+        local_out = f"/tmp/{uuid.uuid4()}.zip"
 
-        # Atualiza status para completo
+        # Download video
+        storage.download_file(input_blob, local_in)
+
+        # Process
+        VideoProcessor.process_video(local_in, local_out)
+
+        # Upload ZIP
+        storage.upload_file(local_out, output_blob)
+
+        # Update database
         video.status = VideoStatus.COMPLETED
-        video.processed_at = datetime.now()
-        video.output_path = output_path
+        video.processed_at = datetime.utcnow()
+        video.storage_output = output_blob
         db.commit()
 
-        # Limpa o vídeo original
-        os.remove(video_path)
-        
-        # Obtém o usuário do vídeo
-        user = db.query(User).filter(User.id == video.user_id).first()
-        if user:
-            # Gera token de download seguro
-            download_token = generate_download_token(video_id, user.id)
-            
-            # Gera URL para download
-            base_url = settings.BASE_URL.rstrip('/')
-            download_url = f"{base_url}/videos/secure-download/{download_token}"
-            
-            # Envia email de notificação de sucesso
-            EmailService.send_success_notification(
-                user_email=user.email,
-                video_name=video.filename,
-                download_url=download_url
-            )
-        
-        return {"status": "success", "output_path": output_path}
+        # Remove local files
+        os.remove(local_in)
+        os.remove(local_out)
+
+        # Notify user
+        user = db.query(User).get(video.user_id)
+        signed_url = storage.generate_signed_url(output_blob)
+        EmailService.send_success_notification(user.email, video.filename, signed_url)
 
     except Exception as e:
-        # Captura o stacktrace completo
-        error_details = traceback.format_exc()
-        print(f"Erro no processamento do vídeo {video_id}: {error_details}")
-        
-        # Atualiza status para falha
-        video = db.query(Video).filter(Video.id == video_id).first()
-        if video:
-            video.status = VideoStatus.FAILED
-            db.commit()
-            
-            # Obtém o usuário do vídeo
-            user = db.query(User).filter(User.id == video.user_id).first()
-            if user:
-                # Envia email de notificação de erro
-                EmailService.send_error_notification(
-                    user_email=user.email,
-                    video_name=video.filename,
-                    error_message=str(e)
-                )
-        
-        # Relança a exceção para que o Celery registre o erro
-        raise e
-
+        db.rollback()
+        video = db.query(Video).get(video_id)
+        video.status = VideoStatus.FAILED
+        db.commit()
+        user = db.query(User).get(video.user_id)
+        EmailService.send_error_notification(user.email, video.filename, str(e))
+        traceback.print_exc()
     finally:
         db.close()
 

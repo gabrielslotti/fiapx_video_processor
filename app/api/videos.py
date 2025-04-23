@@ -1,34 +1,40 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
-from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
-from app.core.security import get_current_user, verify_download_token
-from app.models.video import Video, VideoStatus
-from app.workers.celery_worker import process_video
-from app.db.database import get_db
-import os
 import uuid
-from app.core.config import settings
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
+import os
+from app.core.security import get_current_user
+from app.db.database import get_db
+from app.models.video import Video, VideoStatus
+from app.services.storage_service import StorageService
+from app.workers.celery_worker import process_video
 
 router = APIRouter()
+storage = StorageService()
 
 @router.post("/upload")
 async def upload_video(
     file: UploadFile = File(...),
-    current_user = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user=Depends(get_current_user),
+    db: Session=Depends(get_db)
 ):
-    # Garante que os diretórios existem
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    os.makedirs(settings.OUTPUT_DIR, exist_ok=True)
-    
-    # Salva o arquivo
-    file_path = os.path.join(settings.UPLOAD_DIR, f"{uuid.uuid4()}_{file.filename}")
-    with open(file_path, "wb") as buffer:
-        buffer.write(await file.read())
- 
-    # Cria registro do vídeo
+    # define um nome único no bucket
+    unique_id = str(uuid.uuid4())
+    blob_in = f"uploads/{unique_id}_{file.filename}"
+
+    # salva localmente temporário
+    tmp_file = f"/tmp/{unique_id}"
+    with open(tmp_file, "wb") as f:
+        f.write(await file.read())
+
+    # envia ao bucket
+    storage.upload_file(tmp_file, blob_in)
+    os.remove(tmp_file)
+
+    # cria registro no banco
     video = Video(
         filename=file.filename,
+        storage_input=blob_in,
         status=VideoStatus.PENDING,
         user_id=current_user.id
     )
@@ -36,10 +42,10 @@ async def upload_video(
     db.commit()
     db.refresh(video)
 
-    # Inicia processamento assíncrono
-    output_path = os.path.join(settings.OUTPUT_DIR, f"{video.id}.zip")
-    process_video.delay(file_path, output_path, video.id)
-    
+    # enfileira a task
+    blob_out = f"outputs/{video.id}.zip"
+    process_video.delay(blob_in, blob_out, video.id)
+
     return {"message": "Video upload started", "video_id": video.id}
 
 @router.get("/status")
@@ -83,31 +89,14 @@ async def download_video(
     )
 
 @router.get("/secure-download/{token}")
-async def secure_download_video(
-    token: str,
-    db: Session = Depends(get_db)
-):
-    # Verifica o token
-    result = verify_download_token(token)
-    if not result:
-        raise HTTPException(status_code=403, detail="Invalid or expired download link")
-    
-    video_id, user_id = result
-    
-    # Busca o vídeo
-    video = db.query(Video).filter(
-        Video.id == video_id,
-        Video.user_id == user_id
-    ).first()
-    
-    if not video:
-        raise HTTPException(status_code=404, detail="Video not found")
-    
-    if video.status != VideoStatus.COMPLETED:
-        raise HTTPException(status_code=400, detail="Video not processed yet")
-    
-    return FileResponse(
-        video.output_path,
-        filename=f"{video.filename}_frames.zip",
-        media_type="application/zip"
-    )
+async def secure_download_video(token: str, db: Session=Depends(get_db)):
+    res = verify_download_token(token)
+    if not res:
+        raise HTTPException(403, "Invalid or expired link")
+    video_id, user_id = res
+    vid = db.query(Video).filter(Video.id==video_id, Video.user_id==user_id).first()
+    if not vid or vid.status!=VideoStatus.COMPLETED:
+        raise HTTPException(404, "Video not available")
+    # gera um signed URL GCS e faz redirect
+    signed = storage.generate_signed_url(vid.storage_output)
+    return RedirectResponse(signed)

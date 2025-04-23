@@ -1,0 +1,35 @@
+FROM python:3.10-alpine
+
+# Dependências de sistema
+RUN apk update && apk add --no-cache \
+    build-base \
+    libpq \
+    ffmpeg \
+    libstdc++ \
+    linux-headers
+
+# Gerenciador de pacotes UV
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Copia os arquivos da aplicação
+COPY ./app /src/app
+COPY ./alembic /src/alembic
+COPY main.py alembic.ini pyproject.toml uv.lock /src/
+
+# Instala as dependências
+WORKDIR /src
+RUN uv sync --frozen --no-cache
+
+# Cria pastas de upload/output
+RUN mkdir -p uploads outputs
+
+# Expõe porta usada pelo Cloud Run
+EXPOSE 8080
+
+# Variáveis de ambiente
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/src
+
+# Inicia o Celery Worker
+CMD ["uv", "run", "celery", "-A", "app.workers.celery_worker", "worker", "--loglevel=info"]
