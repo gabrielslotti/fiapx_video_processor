@@ -14,13 +14,31 @@ class Settings(BaseSettings):
     DB_PORT: str = "5432"
     DB_NAME: str = "video_service"
     
+    # Redis settings
     REDIS_URL: str = "redis://localhost:6379"
+
+    # Auth settings
     SECRET_KEY: str = "your-secret-key"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     
+    # Files directories
     UPLOAD_DIR: str = "uploads"
     OUTPUT_DIR: str = "outputs"
+
+    # Celery
+    TASK_TIME_LIMIT: int = 3600
+    WORKER_PREFETCH_MULTIPLIER: int = 1
+    WORKER_MAX_TASKS_PER_CHILD: int = 100
     
+    # Email settings
+    # SMTP Gmail
+    SMTP_SERVER: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str  # ex: seu-email@gmail.com
+    SMTP_PASSWORD: str  # senha de app gerada no Google
+    SMTP_SENDER: str = "Video Processor <seu-email@gmail.com>"
+    BASE_URL: str = "http://localhost:8000"
+
     class Config:
         env_file = ".env"
         
