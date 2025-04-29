@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/github/gabrielslotti/fiapx_video_processor/graph/badge.svg?token=PE77TAXHQ1)](https://codecov.io/github/gabrielslotti/fiapx_video_processor)
+
 # Video Processing Service  
   
 Este é um serviço de processamento de vídeos que permite fazer upload de vídeos e extrair frames em formato ZIP. O serviço é construído usando FastAPI, Celery, e PostgreSQL, oferecendo processamento assíncrono e escalável.  
