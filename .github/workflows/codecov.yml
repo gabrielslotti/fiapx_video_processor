@@ -1,0 +1,61 @@
+name: Run Tests on PR to Main
+
+on:
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.10"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Cache UV dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/uv
+            .venv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/pyproject.toml', '**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Install UV and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install uv
+          uv sync --frozen --no-cache
+
+      - name: Run tests with coverage
+        run: |
+          uv run pytest --cov-report xml:coverage.xml --cov=app 
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v5
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: gabrielslotti/fiapx_video_processor
