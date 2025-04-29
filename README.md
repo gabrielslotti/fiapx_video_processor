@@ -50,18 +50,29 @@ Este é um serviço de processamento de vídeos que permite fazer upload de víd
 7. Email Service:
 - Envia email para o usuário
 
-### Fluxo de Dados
-1. Usuário faz login e upload de vídeo
-2. API valida arquivo e cria registro no banco
-3. API submete tarefa para Redis
-4. Celery Worker consome tarefa da fila
-5. Worker processa vídeo extraindo frames
-6. Frames são compactados em arquivo ZIP
-7. Status é atualizado no banco de dados
-8. Usuário recebe notificação de conclusão ou de erro no processamento
-9. Usuário pode baixar arquivo ZIP com frames
+8. GCS (Google Cloud Storage):
+- Armazena vídeos e resultados processados
 
-### Esta arquitetura distribuída permite:
+### Fluxo da Arquitetura
+
+1. Usuário no Frontend faz POST /videos/upload na API.
+2. A API salva o vídeo no bucket GCS e grava um registro no PostgreSQL com status PENDING.
+3. A API enfileira uma tarefa no Redis (Celery broker) com o nome do objeto de entrada e o ID do vídeo.
+4. O Celery Worker, rodando em outro serviço Cloud Run, consome a tarefa:
+- Faz download do vídeo do GCS para /tmp.
+- Processa frames via OpenCV e empacota em um ZIP.
+- Sobe o ZIP de volta para o GCS.
+- Atualiza o status do vídeo no PostgreSQL para COMPLETED e armazena o nome do objeto de saída.
+5. O Worker gera um Signed URL (tempo‐limitado) para o ZIP e envia um email ao usuário via SMTP (Gmail).
+6. O usuário clica no link do email e faz download direto do GCS, sem precisar autenticar na API.
+
+### Essa arquitetura garante:
+- Desacoplamento entre API e processamento (Celery).
+- Persistência e rastreamento de estado no PostgreSQL.
+- Fila de tarefas confiável com Redis.
+- Armazenamento escalável de arquivos em GCS.
+- Download seguro via Signed URLs.
+- Notificação via SMTP sem expor credenciais em links.
 - Escalabilidade horizontal (mais workers podem ser adicionados)
 - Processamento assíncrono (não bloqueia a API)
 - Tolerância a falhas (tarefas são persistidas)
