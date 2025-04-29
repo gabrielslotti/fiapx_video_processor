@@ -3,14 +3,14 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 import os
-from app.core.security import get_current_user
+from app.core.security import get_current_user, verify_download_token 
 from app.db.database import get_db
 from app.models.video import Video, VideoStatus
-from app.services.storage_service import StorageService
+# from app.services.storage_service import StorageService
 from app.workers.celery_worker import process_video
 
 router = APIRouter()
-storage = StorageService()
+# storage = StorageService()
 
 @router.post("/upload")
 async def upload_video(
@@ -18,6 +18,9 @@ async def upload_video(
     current_user=Depends(get_current_user),
     db: Session=Depends(get_db)
 ):
+    from app.services.storage_service import StorageService
+    storage = StorageService()
+
     # define um nome único no bucket
     unique_id = str(uuid.uuid4())
     blob_in = f"uploads/{unique_id}_{file.filename}"
@@ -53,6 +56,9 @@ async def get_videos_status(
     current_user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    from app.services.storage_service import StorageService
+    storage = StorageService()
+
     videos = db.query(Video).filter(Video.user_id == current_user.id).all()
     return [
         {
@@ -90,13 +96,18 @@ async def download_video(
 
 @router.get("/secure-download/{token}")
 async def secure_download_video(token: str, db: Session=Depends(get_db)):
+    from app.services.storage_service import StorageService
+    storage = StorageService()
+
     res = verify_download_token(token)
     if not res:
         raise HTTPException(403, "Invalid or expired link")
+
     video_id, user_id = res
     vid = db.query(Video).filter(Video.id==video_id, Video.user_id==user_id).first()
     if not vid or vid.status!=VideoStatus.COMPLETED:
         raise HTTPException(404, "Video not available")
+    
     # gera um signed URL GCS e faz redirect
     signed = storage.generate_signed_url(vid.storage_output)
     return RedirectResponse(signed)

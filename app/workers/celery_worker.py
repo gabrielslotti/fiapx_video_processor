@@ -4,7 +4,7 @@ from app.models.video import Video, VideoStatus
 from app.models.user import User
 from app.db.database import SessionLocal
 from app.services.video_processor import VideoProcessor
-from app.services.storage_service import StorageService
+# from app.services.storage_service import StorageService
 from app.services.email_service import EmailService
 from datetime import datetime
 import os
@@ -12,11 +12,14 @@ import uuid
 import traceback
 
 celery = Celery('video_processor', broker=settings.REDIS_URL, backend=settings.REDIS_URL)
-storage = StorageService()
 
 @celery.task
 def process_video(input_blob: str, output_blob: str, video_id: int):
+    from app.services.storage_service import StorageService
+
+    storage = StorageService()
     db = SessionLocal()
+    
     try:
         video = db.query(Video).get(video_id)
         video.status = VideoStatus.PROCESSING

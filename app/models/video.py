@@ -21,7 +21,7 @@ class Video(Base):
     storage_input = Column(String, nullable=False)
     storage_output = Column(String, nullable=True)
     status = Column(Enum(VideoStatus), default=VideoStatus.PENDING)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
     processed_at = Column(DateTime, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     

@@ -34,13 +34,13 @@ class Settings(BaseSettings):
     # SMTP Gmail
     SMTP_SERVER: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
-    SMTP_USER: str  # ex: seu-email@gmail.com
-    SMTP_PASSWORD: str  # senha de app gerada no Google
+    SMTP_USER: str = "myemail@gmail.com"  # ex: seu-email@gmail.com
+    SMTP_PASSWORD: str  = "app-token"# senha de app gerada no Google
     SMTP_SENDER: str = "Video Processor <seu-email@gmail.com>"
     BASE_URL: str = "http://localhost:8000"
 
     # GCS
-    GCS_BUCKET_NAME: str
+    GCS_BUCKET_NAME: str = "my-gcs-bucket"
     # Credenciais, no GCP o próprio ambiente do Cloud Run ou Worker
     # já herda a Service Account correta, então não precisa setar arquivo.
     # Se for local, você pode apontar:

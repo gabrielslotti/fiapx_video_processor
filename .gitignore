@@ -20,9 +20,12 @@ uploads/
 tests/test_outputs/
 tests/test_uploads/
 tests/test_video.avi
-tests/test.db
+*.db
 .coverage
 
 # Credentials
 credentials.json
 key.json
+
+# VSCode
+*.code-workspace

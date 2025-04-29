@@ -10,12 +10,16 @@ class VideoProcessor:
         Processa o vídeo e retorna um arquivo zip com os frames
         Salva um frame a cada time_interval segundos
         """
+        video_name = video_path.split("/")[-1].split(".")[0]
+        print(f"Processando o vídeo {video_name}")
+
+        cap = cv2.VideoCapture(video_path)
+
+        if not cap.isOpened():
+            cap.release()
+            raise ValueError(f"Não foi possível abrir o arquivo de vídeo: {video_path}")
+
         try:
-            video_name = video_path.split("/")[-1].split(".")[0]
-
-            cap = cv2.VideoCapture(video_path)
-            print(f"Processando o vídeo {video_name}")
-
             # Obter o FPS (frames por segundo) do vídeo
             fps = cap.get(cv2.CAP_PROP_FPS)
             print(f"Video FPS: {fps}")
@@ -47,3 +51,6 @@ class VideoProcessor:
             
         except Exception as e:
             raise Exception(f"Error processing video: {str(e)}")
+        finally:
+            if cap.isOpened():
+                cap.release()
