@@ -52,9 +52,10 @@ jobs:
           uv run pytest --cov-report xml:coverage.xml --cov=app 
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          slug: gabrielslotti/fiapx_video_processor
