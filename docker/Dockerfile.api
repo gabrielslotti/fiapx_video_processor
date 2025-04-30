@@ -4,6 +4,10 @@ FROM python:3.10-alpine
 RUN apk update && apk add --no-cache \
     build-base \
     libpq \
+    libpq-dev \
+    gcc \
+    musl-dev \
+    postgresql-dev \
     ffmpeg \
     libstdc++ \
     linux-headers
