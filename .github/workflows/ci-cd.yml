@@ -14,73 +14,75 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+    - name: Checkout
+      uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install UV and dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install uv
-          uv sync --frozen --no-cache
+    - name: Install UV and dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install uv
+        uv sync --frozen --no-cache
 
-      - name: Run tests with coverage
-        run: |
-          uv run pytest --cov-report xml:coverage.xml --cov=app
+    - name: Run tests with coverage
+      run: |
+        uv run pytest --cov-report xml:coverage.xml --cov=app
 
-      - name: Upload coverage report
-        uses: codecov/codecov-action@v5
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
-          verbose: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          slug: gabrielslotti/fiapx_video_processor
+    - name: Upload coverage report
+      uses: codecov/codecov-action@v5
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+        verbose: true
+        token: ${{ secrets.CODECOV_TOKEN }}
+        slug: gabrielslotti/fiapx_video_processor
 
   build-and-deploy:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v3
-      - id: auth
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          project_id: ${{ secrets.GCP_PROJECT }}
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
-          export_default_credentials: true
+    - uses: actions/checkout@v3
+    - id: auth
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ secrets.GCP_PROJECT }}
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+        export_default_credentials: true
 
-      - name: Build & push API
-        run: |
-          gcloud builds submit . \
-            --tag ${{ env.IMAGE_API }} \
-            --dockerfile docker/Dockerfile.api
+    # Updated build step for API
+    - name: Build & push API
+      run: |
+        gcloud builds submit . \
+          --config .github/workflows/cloudbuild-api.yml \
+          --substitutions=_IMAGE_API=${{ env.IMAGE_API }}
 
-      - name: Build & push Worker
-        run: |
-          gcloud builds submit . \
-            --tag ${{ env.IMAGE_WORKER }} \
-            --dockerfile docker/Dockerfile.worker
+    # Updated build step for Worker
+    - name: Build & push Worker
+      run: |
+        gcloud builds submit . \
+          --config .github/workflows/cloudbuild-worker.yml \
+          --substitutions=_IMAGE_WORKER=${{ env.IMAGE_WORKER }}
 
-      - name: Deploy API
-        run: |
-          gcloud run deploy video-processor-api \
-            --image ${{ env.IMAGE_API }} \
-            --region ${{ secrets.CLOUD_RUN_REGION }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --set-env-vars GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}
+    - name: Deploy API
+      run: |
+        gcloud run deploy video-processor-api \
+          --image ${{ env.IMAGE_API }} \
+          --region ${{ secrets.CLOUD_RUN_REGION }} \
+          --platform managed \
+          --allow-unauthenticated \
+          --set-env-vars GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}
 
-      - name: Deploy Worker
-        run: |
-          gcloud run deploy video-processor-worker \
-            --image ${{ env.IMAGE_WORKER }} \
-            --region ${{ secrets.CLOUD_RUN_REGION }} \
-            --platform managed \
-            --no-allow-unauthenticated \
-            --concurrency 1 \
-            --set-env-vars GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}
+    - name: Deploy Worker
+      run: |
+        gcloud run deploy video-processor-worker \
+          --image ${{ env.IMAGE_WORKER }} \
+          --region ${{ secrets.CLOUD_RUN_REGION }} \
+          --platform managed \
+          --no-allow-unauthenticated \
+          --concurrency 1 \
+          --set-env-vars GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}
