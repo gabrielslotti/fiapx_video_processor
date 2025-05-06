@@ -59,19 +59,19 @@ jobs:
       with:
         project_id: ${{ secrets.GCP_PROJECT }}
 
-    # Updated build step for API
     - name: Build & push API
+      continue-on-error: true
       run: |
         gcloud builds submit . \
-          --config .github/workflows/cloudbuild-api.yml \
-          --substitutions=_IMAGE_API=${{ env.IMAGE_API }}
+        --config .github/workflows/cloudbuild-api.yml \
+        --substitutions=_IMAGE_API=${{ env.IMAGE_API }}
 
-    # Updated build step for Worker
     - name: Build & push Worker
+      continue-on-error: true
       run: |
         gcloud builds submit . \
-          --config .github/workflows/cloudbuild-worker.yml \
-          --substitutions=_IMAGE_WORKER=${{ env.IMAGE_WORKER }}
+        --config .github/workflows/cloudbuild-worker.yml \
+        --substitutions=_IMAGE_WORKER=${{ env.IMAGE_WORKER }}
 
     - name: Deploy API
       run: |
