@@ -2,7 +2,7 @@ def test_login_success(client, test_user):
     response = client.post(
         "/auth/token",
         data={"username": test_user.email, "password": "password123"},
-        headers={"Content-Type": "application/x-www-form-urlencoded"}, # Garante o header correto
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
     assert response.status_code == 200
     data = response.json()
@@ -28,7 +28,7 @@ def test_login_nonexistent_user(client):
     assert response.json()["detail"] == "Incorrect email or password"
 
 def test_protected_no_token(client):
-    response = client.get("/videos/status") # Exemplo de rota protegida
+    response = client.get("/videos/status")
     assert response.status_code == 401
     assert response.json()["detail"] == "Not authenticated"
 
@@ -41,5 +41,4 @@ def test_protected_invalid_token(client):
 def test_protected_valid_token(authorized_client):
     response = authorized_client.get("/videos/status")
     assert response.status_code == 200
-    # Verifica se a resposta é uma lista (como esperado do endpoint /videos/status)
     assert isinstance(response.json(), list)
