@@ -1,35 +1,27 @@
-FROM python:3.10-alpine
+FROM python:3.11-slim-bullseye
 
-# Dependências de sistema
-RUN apk update && apk add --no-cache \
-    build-base \
-    libpq \
-    ffmpeg \
-    libstdc++ \
-    linux-headers
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
-# Gerenciador de pacotes UV
+RUN rm -rf /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin || true && \
+    DEBIAN_FRONTEND=noninteractive apt-get update -o APT::Update::Post-Invoke-Success='true' && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libgl1-mesa-glx \
+    libglib2.0-0 && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Copia os arquivos da aplicação
-COPY ./app /src/app
-COPY ./alembic /src/alembic
-COPY main.py alembic.ini pyproject.toml uv.lock /src/
+WORKDIR /app
 
-# Instala as dependências
-WORKDIR /src
+COPY pyproject.toml uv.lock* ./
+
 RUN uv sync --frozen --no-cache
 
-# Cria pastas de upload/output
-RUN mkdir -p uploads outputs
-
-# Expõe porta usada pelo Cloud Run
-EXPOSE 8080
-
-# Variáveis de ambiente
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/src
+COPY . .
 
 # Inicia o Celery Worker
 CMD ["uv", "run", "celery", "-A", "app.workers.celery_worker", "worker", "--loglevel=info"]

@@ -37,6 +37,8 @@ def upgrade() -> None:
         'videos',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('filename', sa.String(), nullable=False),
+        sa.Column('storage_input', sa.String(), nullable=False),
+        sa.Column('storage_output', sa.String(), nullable=False),
         sa.Column('status', sa.Enum('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', name='videostatus'), default='PENDING'),
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
         sa.Column('processed_at', sa.DateTime(), nullable=True),

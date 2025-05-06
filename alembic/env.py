@@ -13,11 +13,13 @@ config = context.config
 
 # here we allow ourselves to pass interpolation vars to alembic.ini
 section = config.config_ini_section
-config.set_section_option(section, "DB_USER", os.environ.get("DB_USER", "postgres"))         # NOQA
-config.set_section_option(section, "DB_PASS", os.environ.get("DB_PASSWORD", "postgres"))     # NOQA
-config.set_section_option(section, "DB_HOST", os.environ.get("DB_HOST", "localhost"))        # NOQA
-config.set_section_option(section, "DB_PORT", os.environ.get("DB_PORT", "5432"))             # NOQA
-config.set_section_option(section, "DB_BASE", os.environ.get("DB_BASE", "video_processor"))  # NOQA
+config.set_section_option(section, "DB_USER", os.environ.get("DB_USER", "postgres"))          # NOQA
+config.set_section_option(section, "DB_PASSWORD", os.environ.get("DB_PASSWORD", "postgres"))  # NOQA
+config.set_section_option(section, "DB_HOST", os.environ.get("DB_HOST", "localhost"))         # NOQA
+config.set_section_option(section, "DB_PORT", os.environ.get("DB_PORT", "5432"))              # NOQA
+config.set_section_option(section, "DB_BASE", os.environ.get("DB_BASE", "video_processor"))   # NOQA
+
+print(os.environ.get("DB_HOST", "localhost"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
