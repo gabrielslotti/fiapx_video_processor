@@ -81,8 +81,8 @@ jobs:
           --image ${{ env.IMAGE_API }} \
           --region ${{ secrets.CLOUD_RUN_REGION }} \
           --platform managed \
+          --port 8000 \
           --allow-unauthenticated \
-          --timeout=300s \
           --env-vars-file env_vars.json
         rm base_vars.json env_vars.json
 
