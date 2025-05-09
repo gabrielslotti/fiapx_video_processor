@@ -2,6 +2,7 @@ FROM python:3.11-slim-bullseye
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
+ARG PORT=8080
 
 RUN rm -rf /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin || true && \
     DEBIAN_FRONTEND=noninteractive apt-get update -o APT::Update::Post-Invoke-Success='true' && \
@@ -23,6 +24,6 @@ RUN uv sync --frozen --no-cache
 
 COPY . .
 
-EXPOSE 8000
+EXPOSE $PORT
 
-CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", $PORT]

@@ -73,29 +73,28 @@ jobs:
         --config .github/workflows/cloudbuild-worker.yml \
         --substitutions=_IMAGE_WORKER=${{ env.IMAGE_WORKER }}
 
-    - name: Deploy API
-      run: |
-        echo '${{ secrets.APP_ENV_VARS }}' > env_vars.json
-        gcloud run deploy video-processor-api \
-          --image ${{ env.IMAGE_API }} \
-          --region ${{ secrets.CLOUD_RUN_REGION }} \
-          --platform managed \
-          --allow-unauthenticated \
-          --timeout=300s \
-          --update-env-vars ACCESS_TOKEN_EXPIRE_MINUTES=1440,TASK_TIME_LIMIT=3600,WORKER_PREFETCH_MULTIPLIER=1,WORKER_MAX_TASKS_PER_CHILD=100 \
-          --update-env-vars-from-file env_vars.json
-        
-        # Limpar arquivo temporário
-        rm env_vars.json
+- name: Deploy API
+  run: |
+    echo '${{ secrets.APP_ENV_VARS }}' > base_vars.json
+    jq '. + {"ACCESS_TOKEN_EXPIRE_MINUTES":"1440", "TASK_TIME_LIMIT":"3600", "WORKER_PREFETCH_MULTIPLIER":"1", "WORKER_MAX_TASKS_PER_CHILD":"100"}' base_vars.json > env_vars.json
+    gcloud run deploy video-processor-api \
+      --image ${{ env.IMAGE_API }} \
+      --region ${{ secrets.CLOUD_RUN_REGION }} \
+      --platform managed \
+      --allow-unauthenticated \
+      --timeout=300s \
+      --env-vars-file env_vars.json
+    rm base_vars.json env_vars.json
 
-    - name: Deploy Worker
-      run: |
-        echo '${{ secrets.APP_ENV_VARS }}' > env_vars.json
-        gcloud run deploy video-processor-worker \
-          --image ${{ env.IMAGE_WORKER }} \
-          --region ${{ secrets.CLOUD_RUN_REGION }} \
-          --platform managed \
-          --no-allow-unauthenticated \
-          --concurrency 1 \
-          --update-env-vars ACCESS_TOKEN_EXPIRE_MINUTES=1440,TASK_TIME_LIMIT=3600,WORKER_PREFETCH_MULTIPLIER=1,WORKER_MAX_TASKS_PER_CHILD=100 \
-          --update-env-vars-from-file env_vars.json
+- name: Deploy Worker
+  run: |
+    echo '${{ secrets.APP_ENV_VARS }}' > base_vars.json
+    jq '. + {"ACCESS_TOKEN_EXPIRE_MINUTES":"1440", "TASK_TIME_LIMIT":"3600", "WORKER_PREFETCH_MULTIPLIER":"1", "WORKER_MAX_TASKS_PER_CHILD":"100"}' base_vars.json > env_vars.json
+    gcloud run deploy video-processor-worker \
+      --image ${{ env.IMAGE_WORKER }} \
+      --region ${{ secrets.CLOUD_RUN_REGION }} \
+      --platform managed \
+      --no-allow-unauthenticated \
+      --concurrency 1 \
+      --env-vars-file env_vars.json
+    rm base_vars.json env_vars.json
